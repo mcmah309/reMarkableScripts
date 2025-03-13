@@ -50,31 +50,37 @@
 # BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 #
 # Prerequisites:
-#
-# * The ssh access has to be configured under the host alias 'remarkable'
-#   (or another alias specified in the env variable REMARKABLE_HOST),
-#   e.g. by putting the following in .ssh/config :
-#   | host remarkable
-#   |        Hostname 10.11.99.1
-#   |        User root
-#   |        ForwardX11 no
-#   |        ForwardAgent no
-#   (and setup ssh public key authentication to avoid typing your passwd)
+
 #
 # * Beyond core utilities (date, basename,...), the following software
 #   has to be installed on the host computer:
 #   - uuidgen
 
 # This is where ssh will try to copy the files associated with the document
-REMARKABLE_HOST=${REMARKABLE_HOST:-remarkable}
+REMARKABLE_HOST=${REMARKABLE_HOST:-10.11.99.1}
+REMARKABLE_USER=${REMARKABLE_USER:-root}
 REMARKABLE_XOCHITL_DIR=${REMARKABLE_XOCHITL_DIR:-.local/share/remarkable/xochitl/}
 TARGET_DIR="${REMARKABLE_HOST}:${REMARKABLE_XOCHITL_DIR}"
+
+# SSH/SCP options to avoid interactive prompts
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+SCP_OPTS="${SSH_OPTS}"
+
+# Display the default password to use when prompted
+# Found at menu -> setting -> general -> about -> Copyrights and licenses
+echo "===================================================="
+echo "When prompted for password, use the password found at:"
+echo "Found at menu -> setting -> general -> about -> Copyrights and licenses"
+echo "E.g. \`rf7bhQxK5G\`"
+echo "===================================================="
 
 # Check if we have something to do
 if [ $# -lt 1 ]; then
     echo "Transfer PDF or EPUB document(s) to a reMarkable tablet."
     echo "See comments/documentation at start of script."
     echo "usage: $(basename $0) [ -r ] path-to-file [path-to-file]..."
+    echo "options:"
+    echo "\`-r\`        Automatic restart."
     exit 1
 fi
 
@@ -176,7 +182,7 @@ EOF
 
     # Transfer files
     echo "Transferring $filename as $uuid"
-    scp -r ${tmpdir}/* "${TARGET_DIR}"
+    scp ${SCP_OPTS} -r ${tmpdir}/* "${REMARKABLE_USER}@${TARGET_DIR}"
     rm -rf ${tmpdir}/*
 done
 
@@ -184,6 +190,6 @@ rm -rf ${tmpdir}
 
 if [ $RESTART_XOCHITL -eq 1 ] ; then
     echo "Restarting Xochitl..."
-    ssh ${REMARKABLE_HOST} "systemctl restart xochitl"
+    ssh ${SSH_OPTS} ${REMARKABLE_USER}@${REMARKABLE_HOST} "systemctl restart xochitl"
     echo "Done."
 fi
